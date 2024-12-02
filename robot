@@ -68,4 +68,11 @@ void load_font(const char* filename) {
                    &font[ascii].strokes[i].pen_down); // Store pen state (0=up, 1=down)
         }
     }
+    fclose(file);
+}
+// Function to calculate scale factor
+float calculate_scale_factor(float desired_height) 
+{
+    const float original_height = 18.0; // Original height from font data
+    return desired_height / original_height;
 }
