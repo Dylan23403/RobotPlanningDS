@@ -76,3 +76,11 @@ float calculate_scale_factor(float desired_height)
     const float original_height = 18.0; // Original height from font data
     return desired_height / original_height;
 }
+// Function to scale a character's strokes based on the desired height
+void scale_character(struct Character* character, float scale_factor) 
+{
+    for (int i = 0; i < character->stroke_count; i++) {
+        character->strokes[i].x = (int)(character->strokes[i].x * scale_factor);
+        character->strokes[i].y = (int)(character->strokes[i].y * scale_factor);
+    }
+}
