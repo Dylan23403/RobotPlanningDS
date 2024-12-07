@@ -1,5 +1,5 @@
-#ifndef stroke_h
-#define stroke_h
+#ifndef STROKE_H
+#define STROKE_H
 
 // Structure to hold stroke data (coordinates and pen state)
 struct Stroke {
