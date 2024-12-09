@@ -59,10 +59,12 @@ int main(void) {
 
     printf("\nThe robot is now ready to draw\n");
 
-    // Ensure the pen is up and move to the origin (0,0) at the start
-    sprintf(buffer, "S0\n");          // Lift the pen
+    //These commands get the robot into 'ready to draw mode' and need to be sent before any writing commands    
+    sprintf (buffer, "G1 X0 Y0 F1000\n");
     SendCommands(buffer);
-    sprintf(buffer, "G0 X0 Y0\n");    // Move to the origin (0,0)
+    sprintf (buffer, "M3\n");
+    SendCommands(buffer);
+    sprintf (buffer, "S0\n");
     SendCommands(buffer);
 
     // Load the font data
