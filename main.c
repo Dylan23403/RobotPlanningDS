@@ -72,7 +72,7 @@ int main(void)
     load_font();
 
     // Process the text file and generate G-code dynamically
-    void process_text_via_rs232(const char* text_filename, float text_height);
+    process_text_via_rs232(text_filename, text_height);
 
     // Free the font data memory
     free_font_data();
