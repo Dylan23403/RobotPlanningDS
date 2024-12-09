@@ -49,9 +49,9 @@ int main(void) {
     sprintf(buffer, "\n");
     PrintBuffer(&buffer[0]);
     #ifdef MAC
-    sleep(100);
+    sleep(1);  // Wait for 1 second
     #else
-    Sleep(100);
+    Sleep(100); // Wait for 100 ms
     #endif
 
     // This is a special case - we wait until we see a dollar ($)
@@ -59,12 +59,10 @@ int main(void) {
 
     printf("\nThe robot is now ready to draw\n");
 
-    // These commands get the robot into 'ready to draw mode'
-    sprintf(buffer, "G1 X0 Y0 F1000\n");
+    // Ensure the pen is up and move to the origin (0,0) at the start
+    sprintf(buffer, "S0\n");          // Lift the pen
     SendCommands(buffer);
-    sprintf(buffer, "M3\n");
-    SendCommands(buffer);
-    sprintf(buffer, "S0\n");
+    sprintf(buffer, "G0 X0 Y0\n");    // Move to the origin (0,0)
     SendCommands(buffer);
 
     // Load the font data
@@ -75,6 +73,12 @@ int main(void) {
 
     // Free the font data memory
     free_font_data();
+
+    // Lift the pen and move to the origin (0,0) at the end
+    sprintf(buffer, "S0\n");          // Lift the pen
+    SendCommands(buffer);
+    sprintf(buffer, "G0 X0 Y0\n");    // Move to the origin (0,0)
+    SendCommands(buffer);
 
     // Before we exit the program, close the COM port
     CloseRS232Port();
@@ -88,8 +92,8 @@ void SendCommands(char *buffer) {
     PrintBuffer(&buffer[0]);
     WaitForReply();
     #ifdef MAC
-    sleep(100);
+    sleep(1); // 1-second delay
     #else
-    Sleep(100); // Can omit this when using the writing robot but has minimal effect
+    Sleep(100); // 100ms delay
     #endif
 }
