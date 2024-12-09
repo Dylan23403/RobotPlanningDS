@@ -8,7 +8,7 @@
 void process_text_via_rs232(const char* text_filename, float text_height) {
     FILE* text_file = fopen(text_filename, "r");
     if (!text_file) {
-        printf("Errcaor: Unable to open text file '%s'.\n", text_filename);
+        printf("Error: Unable to open text file '%s'.\n", text_filename);
         return;
     }
 
