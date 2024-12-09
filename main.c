@@ -19,7 +19,8 @@
 
 void SendCommands(char *buffer);
 
-int main(void) {
+int main(void) 
+{
     char buffer[100];
     char text_filename[100];
     float text_height;
@@ -71,7 +72,7 @@ int main(void) {
     load_font();
 
     // Process the text file and generate G-code dynamically
-    process_text_via_rs232(text_filename, text_height);
+    void process_text_via_rs232(const char* text_filename, float text_height);
 
     // Free the font data memory
     free_font_data();

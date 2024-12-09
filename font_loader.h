@@ -4,7 +4,7 @@
 #include "stroke.h"
 
 // Global font array
-extern struct Character font[128];
+struct Character font[128];
 
 // Function declarations
 void load_font(void);
