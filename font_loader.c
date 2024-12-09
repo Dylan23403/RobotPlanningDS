@@ -5,10 +5,10 @@
 // Global font array
 struct Character font[128];
 
-void load_font(const char* filename) 
+void load_font(void)
 {
-    // Attempt to open the font file in read mode
-    FILE* file = fopen("SingleStrokeFont.txt", "r");
+    const char* filename = "SingleStrokeFont.txt"; 
+    FILE* file = fopen(filename, "r");
     if (file == NULL) {
         // If the file cannot be opened, print an error message and exit the function
         printf("\nThe file could not be opened for reading, exiting.");
@@ -27,7 +27,7 @@ void load_font(const char* filename)
         font[ascii].stroke_count = stroke_count;
 
         // Allocate memory dynamically to hold the strokes for this character
-        font[ascii].strokes = malloc(sizeof(struct Stroke) * stroke_count);
+        font[ascii].strokes = malloc(sizeof(struct Stroke) * (size_t)stroke_count); 
 
         // Check if memory allocation was successful
         if (font[ascii].strokes == NULL) 
@@ -51,7 +51,7 @@ void load_font(const char* filename)
 }
 
 // Free the font data
-void free_font_data() 
+void free_font_data(void) 
 {
     for (int i = 0; i < 128; i++) {
         free_character(&font[i]);

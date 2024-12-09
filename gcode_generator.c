@@ -1,82 +1,73 @@
 #include <stdio.h>
+#include <string.h>
 #include "gcode_generator.h"
 #include "font_loader.h"
+#include "stroke.h"
+#include "serial.h"
 
-// Function to generate G-Code commands for a character's strokes and write to a file
-void generate_gcode_for_character(struct Character* character, FILE* output_file) 
-{
-    for (int i = 0; i < character->stroke_count; i++) 
-    {
-        struct Stroke* stroke = &character->strokes[i];
-        if (stroke->pen_down) 
-        {
-            fprintf(output_file, "S1000\n"); // Lower the pen
-            fprintf(output_file, "G1 X%d Y%d\n", stroke->x, stroke->y); // Draw line
-        } 
-        else 
-        {
-            fprintf(output_file, "S0\n"); // Lift the pen
-            fprintf(output_file, "G0 X%d Y%d\n", stroke->x, stroke->y); // Move without drawing
-        }
-    }
-}
-
-// Processes the input text file and generates G-code
-void process_text(const char* text_filename, float text_height, const char* output_filename) {
-    float scale_factor = text_height / 18.0; // Original height is 18 units
-
+void process_text_via_rs232(const char* text_filename, float text_height) {
     FILE* text_file = fopen(text_filename, "r");
-    if (text_file == NULL) {
-        printf("Error: Unable to open text file '%s'.\n", text_filename);
+    if (!text_file) {
+        printf("Errcaor: Unable to open text file '%s'.\n", text_filename);
         return;
     }
 
-
-FILE* text_file = fopen(text_filename, "r");
-    if (text_file == NULL) {
-        printf("Error: Unable to open text file '%s'.\n", text_filename);
-        return;
-    }
-
-    FILE* output_file = fopen(output_filename, "w");
-    if (output_file == NULL) {
-        printf("Error: Unable to open output file '%s'.\n", output_filename);
-        fclose(text_file);
-        return;
-    }
-
-fprintf(output_file, "G21\n");  // Set units to millimeters
-    fprintf(output_file, "G90\n");  // Set absolute positioning
-    fprintf(output_file, "M3\n");   // Spindle on (pen ready)
-
+    float scale_factor = text_height / 18.0f; // Scale factor for text height
+    char gcode_line[100];
     char word[100];
-    int current_x = 0;
-    const int max_line_width = 100;
+    int current_x = 0;   // Current X position (in mm)
+    int current_y = 0;   // Current Y position (in mm)
+    const int max_line_width = 100; // Maximum writing width (in mm)
 
     while (fscanf(text_file, "%99s", word) == 1) {
+        // Process each character in the word
         for (const char* p = word; *p != '\0'; p++) {
             int ascii = (int)*p;
 
-            if (ascii < 0 || ascii >= 128 || font[ascii].strokes == NULL) {
-                continue; // Skip unsupported characters
+            // Skip unsupported characters
+            if (ascii < 0 || ascii >= 128 || !font[ascii].strokes) {
+                continue;
             }
 
+            // Scale the character strokes
             scale_character(&font[ascii], scale_factor);
-            generate_gcode_for_character(&font[ascii], output_file);
 
-            current_x += (font[ascii].strokes[font[ascii].stroke_count - 1].x + 5) * scale_factor;
-
-            if (current_x > max_line_width) {
-                fprintf(output_file, "G0 X0 Y-5\n");
-                current_x = 0;
+            // Check if the character fits in the current line
+            if (current_x + font[ascii].strokes[font[ascii].stroke_count - 1].x * scale_factor > max_line_width) {
+                // Move to the next line
+                current_y -= 5; // Add 5 mm line spacing
+                current_x = 0;  // Reset X position
+                sprintf(gcode_line, "G0 X0 Y%d\n", current_y);
+                PrintBuffer(gcode_line);
+                WaitForReply();
             }
+
+            // Generate G-code for each stroke of the character
+            for (int i = 0; i < font[ascii].stroke_count; i++) {
+                struct Stroke* stroke = &font[ascii].strokes[i];
+                if (stroke->pen_down) {
+                    sprintf(gcode_line, "S1000\nG1 X%d Y%d\n",
+                            current_x + stroke->x, current_y + stroke->y);
+                } else {
+                    sprintf(gcode_line, "S0\nG0 X%d Y%d\n",
+                            current_x + stroke->x, current_y + stroke->y);
+                }
+                PrintBuffer(gcode_line);
+                WaitForReply();
+            }
+
+            // Update the X position for the next character
+            current_x += (int)((float)(font[ascii].strokes[font[ascii].stroke_count - 1].x) * scale_factor);
         }
-        current_x += 5 * scale_factor; // Space between words
+
+        // Add a space between words
+        current_x += (int)(5 * scale_factor);
+
     }
 
-    fprintf(output_file, "S0\n");
-    fprintf(output_file, "G0 X0 Y0\n");
+    // Finalize: lift pen and move to the origin
+    PrintBuffer("S0\nG0 X0 Y0\n");
+    WaitForReply();
 
     fclose(text_file);
-    fclose(output_file);
 }

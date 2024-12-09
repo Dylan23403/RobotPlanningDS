@@ -7,7 +7,7 @@
 extern struct Character font[128];
 
 // Function declarations
-void load_font(const char* filename);
-void free_font_data();
+void load_font(void);
+void free_font_data(void);
 
 #endif // FONT_LOADER_H
