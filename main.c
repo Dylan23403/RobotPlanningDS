@@ -12,8 +12,7 @@
 #endif
 
 #include "serial.h"
-#include "font_loader.h"
-#include "gcode_generator.h"
+#include "font_gcode.h"
 
 #define bdrate 115200 /* 115200 baud */
 
