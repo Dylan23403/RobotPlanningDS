@@ -66,55 +66,28 @@ void process_text_via_rs232(const char* text_filename, float text_height)
     float scale_factor = text_height / 18.0f; // Scale text height
     char word[100];
     int current_x = 0;         // Current X position
-    int current_y = 0;         // Current Y position
-    int current_line_top = 0;    // Highest Y position of the current line
-    int current_line_bottom = 0; // Lowest Y position of the current line
-    const int max_line_width = 100; // Maximum width in mm
+    int current_y = -(int)(text_height); // Start below Y=0
+    int line_spacing = 5;      // Spacing between lines in mm
+    const int max_line_width = 100; // Maximum width for a line in mm
 
-    // Ensure the robot starts at (0,0) with the pen lifted
-    printf("S0\nG0 X0 Y0\n");
+    // Ensure the robot starts at the correct position with the pen lifted
+    printf("S0\nG0 X0 Y%d\n", current_y);
 
     while (fscanf(text_file, "%99s", word) == 1) {
-        // Calculate the width and vertical bounds of the word
+        // Calculate the width of the word
         int word_width = 0;
-        int word_top = 0;    // Highest point of the word
-        int word_bottom = 0; // Lowest point of the word
-
         for (const char* p = word; *p != '\0'; p++) {
             int ascii = (int)*p;
             if (ascii >= 0 && ascii < 128 && font[ascii].strokes) {
-                // Calculate word width
                 word_width += (int)(font[ascii].strokes[font[ascii].stroke_count - 1].x * scale_factor);
-
-                // Calculate the highest and lowest Y positions of the character
-                for (int i = 0; i < font[ascii].stroke_count; i++) {
-                    int scaled_y = (int)(font[ascii].strokes[i].y * scale_factor);
-                    if (scaled_y < word_bottom) { // Y is negative
-                        word_bottom = scaled_y;
-                    }
-                    if (scaled_y > word_top) { // Y is positive
-                        word_top = scaled_y;
-                    }
-                }
             }
         }
 
-        // Update the line's top and bottom bounds
-        if (word_bottom < current_line_bottom) {
-            current_line_bottom = word_bottom;
-        }
-        if (word_top > current_line_top) {
-            current_line_top = word_top;
-        }
-
-        // Check if the word fits in the current line
+        // If the word doesn't fit in the current line, move to the next line
         if (current_x + word_width > max_line_width) {
-            // Move to the next line
-            current_y -= (current_line_top - current_line_bottom + 5); // Add 5mm gap
-            current_x = 0;  // Reset X position
-            current_line_top = 0;    // Reset for the new line
-            current_line_bottom = 0; // Reset for the new line
-            printf("S0\nG0 X0 Y%d\n", current_y); // Send move-to-next-line command
+            current_x = 0;            // Reset X position
+            current_y -= (int)(text_height + line_spacing); // Move downward for the next line
+            printf("S0\nG0 X%d Y%d\n", current_x, current_y); // Move to the new line
         }
 
         // Draw the word
@@ -130,7 +103,7 @@ void process_text_via_rs232(const char* text_filename, float text_height)
             for (int i = 0; i < font[ascii].stroke_count; i++) {
                 struct Stroke* stroke = &font[ascii].strokes[i];
                 int scaled_x = current_x + (int)(stroke->x * scale_factor);
-                int scaled_y = current_y + (int)(stroke->y * scale_factor);
+                int scaled_y = current_y - (int)((text_height - stroke->y) * scale_factor); // Ensure downward strokes
 
                 if (stroke->pen_down) {
                     printf("S1000\nG1 X%.2f Y%.2f\n", (double)scaled_x, (double)scaled_y);
@@ -139,7 +112,7 @@ void process_text_via_rs232(const char* text_filename, float text_height)
                 }
             }
 
-            // Update X position for the next character
+            // Update current_x based on the last stroke's endpoint of the current letter
             current_x += (int)(font[ascii].strokes[font[ascii].stroke_count - 1].x * scale_factor);
         }
 
