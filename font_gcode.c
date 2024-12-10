@@ -17,8 +17,8 @@ void load_font(void)
 
     printf("Loading font data...\n");
 
-    int ascii, stroke_count;
-    while (fscanf(fInput, "999 %d %d", &ascii, &stroke_count) == 2) {
+    int prefix, ascii, stroke_count;
+    while (fscanf(fInput, "%d %d %d",&prefix, &ascii, &stroke_count) == 3) {
         font[ascii].ascii_code = ascii;
         font[ascii].stroke_count = stroke_count;
 
@@ -35,9 +35,8 @@ void load_font(void)
             fscanf(fInput, "%d %d %d",
                    &font[ascii].strokes[i].x, 
                    &font[ascii].strokes[i].y, 
-                   &font[ascii].strokes[i].pen_down);
+                   &font[ascii].strokes[i].pen_down); 
         }
-        printf("Loaded ASCII %d (%c) with %d strokes.\n", ascii, ascii, stroke_count);
     }
 
     fclose(fInput);
@@ -56,56 +55,88 @@ void free_font_data(void) {
 }
 
 // Function to process text, generate G-code, and send commands to the robot
-void process_text_via_rs232(const char* text_filename, float text_height) {
+void process_text_via_rs232(const char* text_filename, float text_height) 
+{
     FILE* text_file = fopen(text_filename, "r");
     if (!text_file) {
         printf("Error: Could not open text file '%s'.\n", text_filename);
-        exit(1); // Exit if the file cannot be opened
+        exit(1);
     }
 
-    printf("Processing text file: %s\n", text_filename);
-
-    float scale_factor = text_height / 18.0f;
-    char gcode_line[100];
+    float scale_factor = text_height / 18.0f; // Scale text height
     char word[100];
-    int current_x = 0;   // Current X position (in mm)
-    int current_y = 0;   // Current Y position (in mm)
-    const int max_line_width = 100; // Maximum width of a line in mm
+    int current_x = 0;         // Current X position
+    int current_y = 0;         // Current Y position
+    int current_line_top = 0;    // Highest Y position of the current line
+    int current_line_bottom = 0; // Lowest Y position of the current line
+    const int max_line_width = 100; // Maximum width in mm
 
-    // Read and process each word in the file
+    // Ensure the robot starts at (0,0) with the pen lifted
+    printf("S0\nG0 X0 Y0\n");
+
     while (fscanf(text_file, "%99s", word) == 1) {
-        printf("Processing word: %s\n", word);
+        // Calculate the width and vertical bounds of the word
+        int word_width = 0;
+        int word_top = 0;    // Highest point of the word
+        int word_bottom = 0; // Lowest point of the word
 
         for (const char* p = word; *p != '\0'; p++) {
             int ascii = (int)*p;
+            if (ascii >= 0 && ascii < 128 && font[ascii].strokes) {
+                // Calculate word width
+                word_width += (int)(font[ascii].strokes[font[ascii].stroke_count - 1].x * scale_factor);
 
+                // Calculate the highest and lowest Y positions of the character
+                for (int i = 0; i < font[ascii].stroke_count; i++) {
+                    int scaled_y = (int)(font[ascii].strokes[i].y * scale_factor);
+                    if (scaled_y < word_bottom) { // Y is negative
+                        word_bottom = scaled_y;
+                    }
+                    if (scaled_y > word_top) { // Y is positive
+                        word_top = scaled_y;
+                    }
+                }
+            }
+        }
+
+        // Update the line's top and bottom bounds
+        if (word_bottom < current_line_bottom) {
+            current_line_bottom = word_bottom;
+        }
+        if (word_top > current_line_top) {
+            current_line_top = word_top;
+        }
+
+        // Check if the word fits in the current line
+        if (current_x + word_width > max_line_width) {
+            // Move to the next line
+            current_y -= (current_line_top - current_line_bottom + 5); // Add 5mm gap
+            current_x = 0;  // Reset X position
+            current_line_top = 0;    // Reset for the new line
+            current_line_bottom = 0; // Reset for the new line
+            printf("S0\nG0 X0 Y%d\n", current_y); // Send move-to-next-line command
+        }
+
+        // Draw the word
+        for (const char* p = word; *p != '\0'; p++) {
+            int ascii = (int)*p;
+
+            // Skip unsupported characters
             if (ascii < 0 || ascii >= 128 || !font[ascii].strokes) {
-                printf("Skipping unsupported character: %c (ASCII %d)\n", *p, ascii);
                 continue;
             }
-             // Check if adding the character will exceed the max line width
-            if (current_x + font[ascii].strokes[font[ascii].stroke_count - 1].x * scale_factor > max_line_width) {
-            current_y -= 5; // Move to the next line (down 5mm)
-            current_x = 0;  // Reset X position to the start of the new line
-            sprintf(gcode_line, "G0 X0 Y%d\n", current_y);
-            PrintBuffer(gcode_line);
-            WaitForReply();
-            }
-
 
             // Generate G-code for each stroke of the character
             for (int i = 0; i < font[ascii].stroke_count; i++) {
                 struct Stroke* stroke = &font[ascii].strokes[i];
+                int scaled_x = current_x + (int)(stroke->x * scale_factor);
+                int scaled_y = current_y + (int)(stroke->y * scale_factor);
+
                 if (stroke->pen_down) {
-                    sprintf(gcode_line, "S1000\nG1 X%d Y%d\n",
-                            current_x + stroke->x, current_y + stroke->y);
+                    printf("S1000\nG1 X%.2f Y%.2f\n", (double)scaled_x, (double)scaled_y);
                 } else {
-                    sprintf(gcode_line, "S0\nG0 X%d Y%d\n",
-                            current_x + stroke->x, current_y + stroke->y);
+                    printf("S0\nG0 X%.2f Y%.2f\n", (double)scaled_x, (double)scaled_y);
                 }
-                printf("Generated G-code: %s", gcode_line);
-                PrintBuffer(gcode_line); // Send the G-code to the robot
-                WaitForReply();          // Wait for the robot to acknowledge
             }
 
             // Update X position for the next character
@@ -117,5 +148,8 @@ void process_text_via_rs232(const char* text_filename, float text_height) {
     }
 
     fclose(text_file);
+
+    // Ensure the robot ends at (0,0) with the pen lifted
+    printf("S0\nG0 X0 Y0\n");
     printf("Text file processed successfully.\n");
 }
