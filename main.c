@@ -12,7 +12,7 @@
 #endif
 
 #include "serial.h"
-#include "font_gcode.h"
+#include "functions.h"
 
 #define bdrate 115200 /* 115200 baud */
 

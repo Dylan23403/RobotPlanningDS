@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "font_gcode.h"
+#include "functions.h"
 #include "serial.h"
 
 // Global font array
